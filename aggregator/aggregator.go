@@ -6,6 +6,10 @@ import (
 	"sync"
 	"time"
 
+	"io"
+	"net/http"
+	"strconv"
+
 	"github.com/Layr-Labs/eigensdk-go/logging"
 	"github.com/Layr-Labs/eigensdk-go/signer"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
@@ -157,12 +161,9 @@ func (agg *Aggregator) Start(ctx context.Context) error {
 	ticker := time.NewTicker(10 * time.Second)
 	agg.logger.Infof("Aggregator set to send new task every 10 seconds...")
 	defer ticker.Stop()
-	taskNum := int64(0)
 	// ticker doesn't tick immediately, so we send the first task here
 	// see https://github.com/golang/go/issues/17601
-	_ = agg.sendNewTask(big.NewInt(taskNum))
-	taskNum++
-
+	_ = agg.sendNewTask(big.NewInt(agg.getCommitment()))
 	for {
 		select {
 		case <-ctx.Done():
@@ -171,14 +172,27 @@ func (agg *Aggregator) Start(ctx context.Context) error {
 			agg.logger.Info("Received response from blsAggregationService", "blsAggServiceResp", blsAggServiceResp)
 			agg.sendAggregatedResponseToContract(blsAggServiceResp)
 		case <-ticker.C:
-			err := agg.sendNewTask(big.NewInt(taskNum))
-			taskNum++
+			err := agg.sendNewTask(big.NewInt(agg.getCommitment()))
 			if err != nil {
 				// we log the errors inside sendNewTask() so here we just continue to the next task
 				continue
 			}
 		}
 	}
+}
+
+func (agg *Aggregator) getCommitment() int64 {
+	resp, err := http.Get("http://0.0.0.0:8000/commitment")
+	if err != nil {
+		panic(err)
+	}
+	defer resp.Body.Close()
+	data, err := io.ReadAll(resp.Body)
+	if err != nil {
+		panic(err)
+	}
+	ret, _ := strconv.ParseInt(string(data), 10, 64)
+	return ret
 }
 
 func (agg *Aggregator) sendAggregatedResponseToContract(blsAggServiceResp blsagg.BlsAggregationServiceResponse) {
@@ -224,12 +238,12 @@ func (agg *Aggregator) sendAggregatedResponseToContract(blsAggServiceResp blsagg
 
 // sendNewTask sends a new task to the task manager contract, and updates the Task dict struct
 // with the information of operators opted into quorum 0 at the block of task creation.
-func (agg *Aggregator) sendNewTask(numToSquare *big.Int) error {
-	agg.logger.Info("Aggregator sending new task", "numberToSquare", numToSquare)
-	// Send number to square to the task manager contract
-	newTask, taskIndex, err := agg.avsWriter.SendNewTaskNumberToSquare(context.Background(), numToSquare, types.QUORUM_THRESHOLD_NUMERATOR, types.QUORUM_NUMBERS)
+func (agg *Aggregator) sendNewTask(commitment *big.Int) error {
+	agg.logger.Info("Aggregator sending new task", "commitment", commitment)
+	// Send commitment to the task manager contract
+	newTask, taskIndex, err := agg.avsWriter.SendCommitment(context.Background(), commitment, types.QUORUM_THRESHOLD_NUMERATOR, types.QUORUM_NUMBERS)
 	if err != nil {
-		agg.logger.Error("Aggregator failed to send number to square", "err", err)
+		agg.logger.Error("Aggregator failed to send commitment", "err", err)
 		return err
 	}
 
