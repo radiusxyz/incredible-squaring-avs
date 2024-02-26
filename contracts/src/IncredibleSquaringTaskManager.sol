@@ -84,7 +84,7 @@ contract IncredibleSquaringTaskManager is
         uint256 numberToBeSquared,
         uint32 quorumThresholdPercentage,
         bytes calldata quorumNumbers
-    ) external onlyTaskGenerator {
+    ) external {
         // create a new task struct
         Task memory newTask;
         newTask.numberToBeSquared = numberToBeSquared;
