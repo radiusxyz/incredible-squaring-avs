@@ -5,7 +5,7 @@ import "@eigenlayer/contracts/libraries/BN254.sol";
 
 interface IIncredibleSquaringTaskManager {
     // EVENTS
-    event NewTaskCreated(uint32 indexed taskIndex, Task task);
+    event NewTaskCreated(uint32 indexed taskIndex, uint256 numberToBeSquared);
 
     event TaskResponded(
         TaskResponse taskResponse,
