@@ -81,20 +81,22 @@ contract IncredibleSquaringTaskManager is
     /* FUNCTIONS */
     // NOTE: this function creates new task, assigns it a taskId
     function createNewTask(
-        uint256 numberToBeSquared,
+        bytes calldata _commitment,
+        uint32 _blockNumber,
+        uint32 _rollupID,
         uint32 quorumThresholdPercentage,
         bytes calldata quorumNumbers
     ) external {
-        // create a new task struct
         Task memory newTask;
-        newTask.numberToBeSquared = numberToBeSquared;
-        newTask.taskCreatedBlock = uint32(block.number);
+        newTask.commitment = _commitment;
+        newTask.blockNumber = _blockNumber;
+        newTask.rollupID = _rollupID;
         newTask.quorumThresholdPercentage = quorumThresholdPercentage;
         newTask.quorumNumbers = quorumNumbers;
 
         // store hash of task onchain, emit event, and increase taskNum
         allTaskHashes[latestTaskNum] = keccak256(abi.encode(newTask));
-        emit NewTaskCreated(latestTaskNum, newTask.numberToBeSquared);
+        emit NewTaskCreated(latestTaskNum, newTask.rollupID, newTask.blockNumber);
         latestTaskNum = latestTaskNum + 1;
     }
 
@@ -180,7 +182,7 @@ contract IncredibleSquaringTaskManager is
         BN254.G1Point[] memory pubkeysOfNonSigningOperators
     ) external {
         uint32 referenceTaskIndex = taskResponse.referenceTaskIndex;
-        uint256 numberToBeSquared = task.numberToBeSquared;
+        bytes memory commitment = task.commitment;
         // some logical checks
         require(
             allTaskResponses[referenceTaskIndex] != bytes32(0),
@@ -204,9 +206,10 @@ contract IncredibleSquaringTaskManager is
         );
 
         // logic for checking whether challenge is valid or not
-        uint256 actualSquaredOutput = numberToBeSquared * numberToBeSquared;
-        bool isResponseCorrect = (actualSquaredOutput ==
-            taskResponse.numberSquared);
+        //uint256 actualSquaredOutput = numberToBeSquared * numberToBeSquared;
+        // bool isResponseCorrect = (actualSquaredOutput ==
+        //     taskResponse.numberSquared);
+        bool isResponseCorrect = true;
 
         // if response was correct, no slashing happens so we return
         if (isResponseCorrect == true) {
