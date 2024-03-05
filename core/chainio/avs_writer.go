@@ -2,7 +2,6 @@ package chainio
 
 import (
 	"context"
-	"math/big"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	gethcommon "github.com/ethereum/go-ethereum/common"
@@ -23,7 +22,9 @@ type AvsWriterer interface {
 
 	SendCommitment(
 		ctx context.Context,
-		commitment *big.Int,
+		commitment []byte,
+		blockNumber uint32,
+		rollupID uint32,
 		quorumThresholdPercentage uint32,
 		quorumNumbers []byte,
 	) (cstaskmanager.IIncredibleSquaringTaskManagerTask, uint32, error)
@@ -94,9 +95,10 @@ func NewAvsWriter(signer signer.Signer, serviceManagerAddr, blsOperatorStateRetr
 }
 
 // returns the tx receipt, as well as the task index (which it gets from parsing the tx receipt logs)
-func (w *AvsWriter) SendCommitment(ctx context.Context, commitment *big.Int, quorumThresholdPercentage uint32, quorumNumbers []byte) (cstaskmanager.IIncredibleSquaringTaskManagerTask, uint32, error) {
+func (w *AvsWriter) SendCommitment(ctx context.Context, commitment []byte, blockNumber uint32, rollupID uint32, quorumThresholdPercentage uint32, quorumNumbers []byte) (cstaskmanager.IIncredibleSquaringTaskManagerTask, uint32, error) {
 	txOpts := w.Signer.GetTxOpts()
-	tx, err := w.AvsContractBindings.TaskManager.CreateNewTask(txOpts, commitment, quorumThresholdPercentage, quorumNumbers)
+
+	tx, err := w.AvsContractBindings.TaskManager.CreateNewTask(txOpts, commitment, blockNumber, rollupID, quorumThresholdPercentage, quorumNumbers)
 	if err != nil {
 		w.logger.Errorf("Error assembling CreateNewTask tx")
 		return cstaskmanager.IIncredibleSquaringTaskManagerTask{}, 0, err

@@ -87,16 +87,18 @@ contract IncredibleSquaringTaskManager is
         uint32 quorumThresholdPercentage,
         bytes calldata quorumNumbers
     ) external {
+        // create a new task struct
         Task memory newTask;
         newTask.commitment = _commitment;
         newTask.blockNumber = _blockNumber;
         newTask.rollupID = _rollupID;
+        newTask.taskCreatedBlock = uint32(block.number);
         newTask.quorumThresholdPercentage = quorumThresholdPercentage;
         newTask.quorumNumbers = quorumNumbers;
 
         // store hash of task onchain, emit event, and increase taskNum
         allTaskHashes[latestTaskNum] = keccak256(abi.encode(newTask));
-        emit NewTaskCreated(latestTaskNum, newTask.rollupID, newTask.blockNumber);
+        emit NewTaskCreated(latestTaskNum, newTask);
         latestTaskNum = latestTaskNum + 1;
     }
 

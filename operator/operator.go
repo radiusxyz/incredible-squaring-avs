@@ -3,11 +3,11 @@ package operator
 import (
 	"context"
 	"fmt"
-	"math/big"
 	"os"
 
 	"io"
 	"net/http"
+	"net/url"
 	"strconv"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
@@ -332,23 +332,31 @@ func (o *Operator) Start(ctx context.Context) error {
 func (o *Operator) ProcessNewTaskCreatedLog(newTaskCreatedLog *cstaskmanager.ContractIncredibleSquaringTaskManagerNewTaskCreated) *cstaskmanager.IIncredibleSquaringTaskManagerTaskResponse {
 	o.logger.Debug("Received new task", "task", newTaskCreatedLog)
 	o.logger.Info("Received new task",
-		"numberToBeSquared", newTaskCreatedLog.Task.NumberToBeSquared,
+		"commitment", newTaskCreatedLog.Task.Commitment,
 		"taskIndex", newTaskCreatedLog.TaskIndex,
 		"taskCreatedBlock", newTaskCreatedLog.Task.TaskCreatedBlock,
 		"quorumNumbers", newTaskCreatedLog.Task.QuorumNumbers,
 		"QuorumThresholdPercentage", newTaskCreatedLog.Task.QuorumThresholdPercentage,
 	)
-	//numberSquared := big.NewInt(0).Exp(newTaskCreatedLog.Task.NumberToBeSquared, big.NewInt(2), nil)
-	numberSquared := big.NewInt(o.getCommitment())
+	commitment := o.getCommitment(newTaskCreatedLog.Task.RollupID, newTaskCreatedLog.Task.BlockNumber)
 	taskResponse := &cstaskmanager.IIncredibleSquaringTaskManagerTaskResponse{
 		ReferenceTaskIndex: newTaskCreatedLog.TaskIndex,
-		NumberSquared:      numberSquared,
+		Commitment:         commitment,
 	}
 	return taskResponse
 }
 
-func (o *Operator) getCommitment() int64 {
-	resp, err := http.Get("http://0.0.0.0:8000/commitment")
+func (o *Operator) getCommitment(_rollupID uint32, _blockNumber uint32) []byte {
+	baseURL := "http://0.0.0.0:8000"
+	resource := "/get-block-commitment"
+	params := url.Values{}
+	params.Add("rollup_id", strconv.FormatUint(uint64(_rollupID), 10))
+	params.Add("block_height", strconv.FormatUint(uint64(_rollupID), 10))
+	u, _ := url.ParseRequestURI(baseURL)
+	u.Path = resource
+	u.RawQuery = params.Encode()
+	urlStr := fmt.Sprintf("%v", u)
+	resp, err := http.Get(urlStr)
 	if err != nil {
 		panic(err)
 	}
@@ -357,8 +365,7 @@ func (o *Operator) getCommitment() int64 {
 	if err != nil {
 		panic(err)
 	}
-	ret, _ := strconv.ParseInt(string(data), 10, 64)
-	return ret
+	return data
 }
 
 func (o *Operator) SignTaskResponse(taskResponse *cstaskmanager.IIncredibleSquaringTaskManagerTaskResponse) (*aggregator.SignedTaskResponse, error) {

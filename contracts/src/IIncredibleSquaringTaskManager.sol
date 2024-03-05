@@ -5,7 +5,7 @@ import "@eigenlayer/contracts/libraries/BN254.sol";
 
 interface IIncredibleSquaringTaskManager {
     // EVENTS
-    event NewTaskCreated(uint32 indexed taskIndex, uint32 rollupID, uint32 blockNumber);
+    event NewTaskCreated(uint32 indexed taskIndex, Task task);
 
     event TaskResponded(
         TaskResponse taskResponse,
@@ -27,9 +27,9 @@ interface IIncredibleSquaringTaskManager {
     // STRUCTS
     struct Task {
         bytes commitment;
-        uint32 taskCreatedBlock;
         uint32 blockNumber;
         uint32 rollupID;
+        uint32 taskCreatedBlock;
         // task submitter decides on the criteria for a task to be completed
         // note that this does not mean the task was "correctly" answered (i.e. the number was squared correctly)
         //      this is for the challenge logic to verify
@@ -60,9 +60,9 @@ interface IIncredibleSquaringTaskManager {
     // FUNCTIONS
     // NOTE: this function creates new task.
     function createNewTask(
-        bytes calldata _commitment,
-        uint32 _blockNumber,
-        uint32 _rollupID,
+        bytes calldata commitment,
+        uint32 blockNumber,
+        uint32 rollupID,
         uint32 quorumThresholdPercentage,
         bytes calldata quorumNumbers
     ) external;

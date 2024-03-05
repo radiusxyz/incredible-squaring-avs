@@ -6,10 +6,6 @@ import (
 	"sync"
 	"time"
 
-	"io"
-	"net/http"
-	"strconv"
-
 	"github.com/Layr-Labs/eigensdk-go/logging"
 	"github.com/Layr-Labs/eigensdk-go/signer"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
@@ -158,12 +154,12 @@ func (agg *Aggregator) Start(ctx context.Context) error {
 	go agg.startServer(ctx)
 
 	// TODO(soubhik): refactor task generation/sending into a separate function that we can run as goroutine
-	ticker := time.NewTicker(10 * time.Second)
-	agg.logger.Infof("Aggregator set to send new task every 10 seconds...")
-	defer ticker.Stop()
+	// ticker := time.NewTicker(10 * time.Second)
+	// agg.logger.Infof("Aggregator set to send new task every 10 seconds...")
+	// defer ticker.Stop()
 	// ticker doesn't tick immediately, so we send the first task here
 	// see https://github.com/golang/go/issues/17601
-	_ = agg.sendNewTask(big.NewInt(agg.getCommitment()))
+	//_ = agg.sendNewTask(big.NewInt(1010101010))
 	for {
 		select {
 		case <-ctx.Done():
@@ -171,28 +167,14 @@ func (agg *Aggregator) Start(ctx context.Context) error {
 		case blsAggServiceResp := <-agg.blsAggregationService.GetResponseChannel():
 			agg.logger.Info("Received response from blsAggregationService", "blsAggServiceResp", blsAggServiceResp)
 			agg.sendAggregatedResponseToContract(blsAggServiceResp)
-		case <-ticker.C:
-			err := agg.sendNewTask(big.NewInt(agg.getCommitment()))
-			if err != nil {
-				// we log the errors inside sendNewTask() so here we just continue to the next task
-				continue
-			}
+			// case <-ticker.C:
+			// 	err := agg.sendNewTask(big.NewInt(1010101010))
+			// 	if err != nil {
+			// 		// we log the errors inside sendNewTask() so here we just continue to the next task
+			// 		continue
+			// 	}
 		}
 	}
-}
-
-func (agg *Aggregator) getCommitment() int64 {
-	resp, err := http.Get("http://0.0.0.0:8000/commitment")
-	if err != nil {
-		panic(err)
-	}
-	defer resp.Body.Close()
-	data, err := io.ReadAll(resp.Body)
-	if err != nil {
-		panic(err)
-	}
-	ret, _ := strconv.ParseInt(string(data), 10, 64)
-	return ret
 }
 
 func (agg *Aggregator) sendAggregatedResponseToContract(blsAggServiceResp blsagg.BlsAggregationServiceResponse) {
@@ -241,7 +223,7 @@ func (agg *Aggregator) sendAggregatedResponseToContract(blsAggServiceResp blsagg
 func (agg *Aggregator) sendNewTask(commitment *big.Int) error {
 	agg.logger.Info("Aggregator sending new task", "commitment", commitment)
 	// Send commitment to the task manager contract
-	newTask, taskIndex, err := agg.avsWriter.SendCommitment(context.Background(), commitment, types.QUORUM_THRESHOLD_NUMERATOR, types.QUORUM_NUMBERS)
+	newTask, taskIndex, err := agg.avsWriter.SendCommitment(context.Background(), commitment.Bytes(), 0, 0, types.QUORUM_THRESHOLD_NUMERATOR, types.QUORUM_NUMBERS)
 	if err != nil {
 		agg.logger.Error("Aggregator failed to send commitment", "err", err)
 		return err
@@ -250,7 +232,6 @@ func (agg *Aggregator) sendNewTask(commitment *big.Int) error {
 	agg.tasksMu.Lock()
 	agg.tasks[taskIndex] = newTask
 	agg.tasksMu.Unlock()
-
 	quorumThresholdPercentages := make([]uint32, len(newTask.QuorumNumbers))
 	for i, _ := range newTask.QuorumNumbers {
 		quorumThresholdPercentages[i] = newTask.QuorumThresholdPercentage
